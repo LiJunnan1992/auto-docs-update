@@ -1,0 +1,60 @@
+name: Update Documentation
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  update-docs:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Create docs directory if not exists
+        run: mkdir -p docs
+
+      - name: Create documentation file
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_DESCRIPTION="${{ github.event.pull_request.body }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          PR_MERGED_AT="${{ github.event.pull_request.merged_at }}"
+          
+          echo "# Pull Request #${PR_NUMBER}: ${PR_TITLE}" > docs/pull_request_${PR_NUMBER}.md
+          echo "" >> docs/pull_request_${PR_NUMBER}.md
+          echo "**Author:** ${PR_AUTHOR}" >> docs/pull_request_${PR_NUMBER}.md
+          echo "**Merged at:** ${PR_MERGED_AT}" >> docs/pull_request_${PR_NUMBER}.md
+          echo "" >> docs/pull_request_${PR_NUMBER}.md
+          echo "## Description" >> docs/pull_request_${PR_NUMBER}.md
+          echo "${PR_DESCRIPTION:-No description provided.}" >> docs/pull_request_${PR_NUMBER}.md
+
+      - name: Update README with link
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          
+          # Check if the Documentation section exists in README
+          if ! grep -q "## Documentation" README.md; then
+            echo "\n## Documentation" >> README.md
+          fi
+          
+          # Add link to the new documentation file
+          echo "- [PR #${PR_NUMBER}: ${PR_TITLE}](docs/pull_request_${PR_NUMBER}.md)" >> README.md
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/ README.md
+          git commit -m "Update documentation for PR #${{ github.event.pull_request.number }}"
+          git push
